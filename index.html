@@ -441,6 +441,7 @@
     <button class="btn btn-icon" onclick="openPlayersModal()" id="playersBtn" title="Jugadores" disabled>👥</button>
     <button class="btn btn-icon" onclick="openShareModal()" id="shareBtn" title="Compartir" disabled>↗</button>
     <button class="btn btn-icon" onclick="openSettingsModal()" id="settingsBtn" title="Ajustes" disabled>⚙</button>
+    <button class="btn btn-icon" onclick="toggleHelpModal()" title="Atajos de teclado (?)">?</button>
   </div>
   <div class="match-row" id="matchRow" style="display:none;">
     <div class="match-info">
@@ -696,6 +697,38 @@
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('shareModal')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="helpModal">
+  <div class="modal">
+    <h2>⌨️ Atajos de teclado</h2>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">
+      Funciona en escritorio. En móvil usa los botones táctiles.
+    </div>
+    <table style="width:100%;font-size:12px;">
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">Espacio</kbd> o <kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">K</kbd></td><td style="padding:4px 0;">▶/⏸ Iniciar/Pausar cronómetro</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">1</kbd></td><td style="padding:4px 0;">Velocidad 1x (tiempo real)</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">2</kbd></td><td style="padding:4px 0;">Velocidad 2x (video 2x)</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">4</kbd></td><td style="padding:4px 0;">Velocidad 4x (video 4x)</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">8</kbd></td><td style="padding:4px 0;">Velocidad 8x (video 8x)</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">H</kbd> o <kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">M</kbd></td><td style="padding:4px 0;">Cambiar de mitad (1H ↔ 2H)</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">Z</kbd></td><td style="padding:4px 0;">↶ Deshacer último evento</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">Q</kbd></td><td style="padding:4px 0;">Seleccionar equipo Local</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">W</kbd></td><td style="padding:4px 0;">Seleccionar equipo Visitante</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">P</kbd></td><td style="padding:4px 0;">📋 Abrir/Cerrar panel Timeline/Stats</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">L</kbd></td><td style="padding:4px 0;">🔒 Bloquear/Desbloquear giro</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">N</kbd></td><td style="padding:4px 0;">+ Nuevo partido</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">?</kbd></td><td style="padding:4px 0;">Mostrar esta ayuda</td></tr>
+      <tr><td style="padding:4px 0;"><kbd style="background:#f1f5f9;padding:2px 6px;border-radius:3px;border:1px solid #cbd5e1;font-family:monospace;">Esc</kbd></td><td style="padding:4px 0;">Cerrar modales</td></tr>
+    </table>
+    <div style="background:#fef3c7;padding:8px;border-radius:4px;margin-top:12px;font-size:11px;color:#92400e;">
+      💡 <strong>Tip:</strong> En móvil, los atajos no funcionan — usa los botones táctiles.
+      En escritorio son muy útiles para anotar rápido mientras ves el partido.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeModal('helpModal')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1711,6 +1744,87 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     if (e.target === overlay) overlay.classList.remove('show');
   });
 });
+
+// ============= KEYBOARD SHORTCUTS =============
+document.addEventListener('keydown', (e) => {
+  // Don't trigger when typing in inputs/textarea/select
+  const tag = e.target.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  // Don't trigger when modal is open
+  const anyModalOpen = document.querySelector('.modal-overlay.show');
+  if (anyModalOpen) {
+    // Allow Escape to close modals
+    if (e.key === 'Escape') anyModalOpen.classList.remove('show');
+    return;
+  }
+  // Don't trigger if no match loaded (except 'n' for new)
+  const m = currentMatch();
+
+  switch (e.key.toLowerCase()) {
+    case ' ':
+    case 'k':
+      e.preventDefault();
+      if (m) toggleClock();
+      break;
+    case '1':
+      setSpeed(1);
+      break;
+    case '2':
+      setSpeed(2);
+      break;
+    case '4':
+      setSpeed(4);
+      break;
+    case '8':
+      setSpeed(8);
+      break;
+    case 'h':
+    case 'm':
+      if (m) switchHalf();
+      break;
+    case 'z':
+      if (m) undoLast();
+      break;
+    case 'l':
+      toggleLockRotation();
+      break;
+    case 'q':
+      if (m) selectTeam('home');
+      break;
+    case 'w':
+      if (m) selectTeam('away');
+      break;
+    case 'p':
+      if (m) togglePanel();
+      break;
+    case 'n':
+      openNewMatchModal();
+      break;
+    case '?':
+      e.preventDefault();
+      toggleHelpModal();
+      break;
+  }
+});
+
+// Set speed directly (used by keyboard shortcuts)
+function setSpeed(speed) {
+  if (![1, 2, 4, 8].includes(speed)) return;
+  state.clockSpeed = speed;
+  updateSpeedButton();
+  try { localStorage.setItem('pizarra-clock-speed', String(speed)); } catch (e) {}
+  const labels = { 1: 'tiempo real', 2: 'doble velocidad', 4: '4x', 8: '8x' };
+  showToast(`Velocidad: ${speed}x — ${labels[speed]}`);
+}
+
+function toggleHelpModal() {
+  const modal = document.getElementById('helpModal');
+  if (modal.classList.contains('show')) {
+    modal.classList.remove('show');
+  } else {
+    modal.classList.add('show');
+  }
+}
 
 // Prevent pinch zoom on mobile
 document.addEventListener('gesturestart', (e) => e.preventDefault());
