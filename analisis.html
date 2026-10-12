@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Análisis Táctico - KPIs y Mejoras</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #f8fafc; --fg: #0f172a; --muted: #64748b; --border: #e2e8f0;
+    --primary: #7c3aed; --card: #ffffff; --accent: #1e293b;
+    --good: #10b981; --warn: #f59e0b; --bad: #ef4444;
+    --home: #dc2626; --away: #2563eb;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--fg);
+    min-height: 100vh; padding: 12px;
+    font-size: 14px; line-height: 1.4;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+
+  /* HEADER */
+  header {
+    background: var(--card); border-bottom: 3px solid var(--primary);
+    padding: 12px; border-radius: 8px; margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .header-top {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .header-title { font-size: 18px; font-weight: 700; flex: 1; min-width: 0; }
+  .header-title .emoji { font-size: 22px; }
+  .header-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+  .btn {
+    border: 1px solid #cbd5e1; background: var(--card); color: #334155;
+    border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: inherit;
+  }
+  .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .btn:active { transform: scale(0.97); }
+
+  /* MATCH INFO */
+  .match-info {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px;
+    font-size: 12px; flex-wrap: wrap;
+  }
+  .team-color { width: 12px; height: 12px; border-radius: 2px; }
+  .team-name { font-weight: 600; font-size: 13px; }
+  .vs { color: var(--muted); font-size: 11px; }
+
+  /* EMPTY STATE */
+  .empty {
+    text-align: center; padding: 40px 20px; background: var(--card);
+    border-radius: 8px; border: 2px dashed var(--border);
+  }
+  .empty h2 { font-size: 18px; margin: 12px 0 8px; }
+  .empty p { color: var(--muted); margin-bottom: 16px; font-size: 13px; }
+  .empty .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  /* SECTIONS */
+  .section {
+    background: var(--card); border-radius: 8px; padding: 16px;
+    margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .section h2 {
+    font-size: 16px; font-weight: 700; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+    padding-bottom: 8px; border-bottom: 2px solid var(--border);
+  }
+  .section h2 .icon { font-size: 18px; }
+
+  /* KPI GRID */
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .kpi-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--muted);
+  }
+  .kpi-card.good::before { background: var(--good); }
+  .kpi-card.warn::before { background: var(--warn); }
+  .kpi-card.bad::before { background: var(--bad); }
+  .kpi-card .label {
+    font-size: 10px; text-transform: uppercase; font-weight: 600;
+    color: var(--muted); letter-spacing: 0.05em;
+  }
+  .kpi-card .value {
+    font-size: 24px; font-weight: 800; margin: 4px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-card .sub {
+    font-size: 10px; color: var(--muted);
+  }
+  .kpi-card .home-away {
+    display: flex; justify-content: space-between; gap: 4px; margin-top: 6px;
+    font-size: 11px; font-weight: 700;
+  }
+  .kpi-card .home-away .h { color: var(--home); }
+  .kpi-card .home-away .a { color: var(--away); }
+
+  /* CHART CONTAINERS */
+  .chart-container {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; margin-top: 8px;
+  }
+  .chart-title {
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;
+  }
+  .chart-canvas-wrap {
+    position: relative; width: 100%;
+  }
+  canvas { display: block; max-width: 100%; }
+
+  /* BAR CHART */
+  .bar-chart { display: flex; flex-direction: column; gap: 6px; }
+  .bar-row {
+    display: grid; grid-template-columns: 110px 1fr 36px;
+    align-items: center; gap: 6px; font-size: 11px;
+  }
+  .bar-label { font-weight: 500; }
+  .bar-track {
+    background: #f1f5f9; border-radius: 4px; height: 18px;
+    position: relative; overflow: hidden; display: flex;
+  }
+  .bar-fill {
+    height: 100%; border-radius: 4px 0 0 4px;
+    transition: width 0.5s;
+  }
+  .bar-fill.home { background: var(--home); }
+  .bar-fill.away { background: var(--away); border-radius: 0 4px 4px 0; }
+  .bar-value { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+
+  /* HEATMAP FIELD */
+  .heatmap-field {
+    width: 100%; aspect-ratio: 7/5; position: relative;
+    background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+    border-radius: 8px; overflow: hidden; margin-top: 8px;
+  }
+  .heatmap-grid {
+    position: absolute; inset: 2%;
+    display: grid; gap: 0;
+  }
+  .heatmap-cell {
+    border: 1px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    position: relative;
+  }
+  .heatmap-stripes { position: absolute; inset: 0; display: flex; }
+  .heatmap-stripes > div { flex: 1; }
+  .heatmap-stripes > div:nth-child(even) { background: rgba(0,0,0,0.06); }
+  .heatmap-stripes > div:nth-child(odd) { background: rgba(255,255,255,0.04); }
+  .heatmap-lines { position: absolute; inset: 0; pointer-events: none; }
+  .heatmap-lines svg { width: 100%; height: 100%; }
+
+  /* TIMELINE TRENDS */
+  .timeline-chart {
+    height: 120px; background: #f8fafc; border-radius: 6px;
+    padding: 8px; position: relative;
+  }
+
+  /* RECOMMENDATIONS */
+  .recommendations { display: flex; flex-direction: column; gap: 8px; }
+  .recommendation {
+    background: var(--card); border-left: 4px solid var(--muted);
+    padding: 12px; border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .recommendation.priority-high { border-left-color: var(--bad); background: #fef2f2; }
+  .recommendation.priority-med { border-left-color: var(--warn); background: #fffbeb; }
+  .recommendation.priority-low { border-left-color: var(--good); background: #f0fdf4; }
+  .recommendation.priority-info { border-left-color: var(--primary); background: #faf5ff; }
+  .rec-header {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+  }
+  .rec-priority-badge {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 3px; letter-spacing: 0.05em;
+  }
+  .rec-priority-badge.high { background: var(--bad); color: white; }
+  .rec-priority-badge.med { background: var(--warn); color: white; }
+  .rec-priority-badge.low { background: var(--good); color: white; }
+  .rec-priority-badge.info { background: var(--primary); color: white; }
+  .rec-title { font-weight: 700; font-size: 13px; flex: 1; }
+  .rec-desc { font-size: 12px; color: var(--fg); margin-bottom: 6px; }
+  .rec-data {
+    font-size: 11px; color: var(--muted);
+    background: rgba(0,0,0,0.03); padding: 4px 6px; border-radius: 4px;
+    margin-bottom: 6px; font-family: monospace;
+  }
+  .rec-action {
+    font-size: 12px; padding: 6px 8px;
+    background: rgba(255,255,255,0.6); border-radius: 4px;
+    border-left: 2px solid var(--accent);
+  }
+  .rec-action strong { color: var(--primary); }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: #f1f5f9; font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--muted); }
+  td.number { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  td.home { color: var(--home); font-weight: 700; }
+  td.away { color: var(--away); font-weight: 700; }
+
+  /* TABS */
+  .tabs {
+    display: flex; gap: 2px; background: #f1f5f9;
+    padding: 3px; border-radius: 6px; margin-bottom: 8px;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 6px 10px; border-radius: 4px; border: none;
+    background: transparent; cursor: pointer;
+    font-size: 12px; font-weight: 600; color: #475569;
+    font-family: inherit; white-space: nowrap;
+  }
+  .tab.active { background: var(--card); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 50; display: none; align-items: center; justify-content: center;
+    padding: 12px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 8px; padding: 16px;
+    max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto;
+  }
+  .modal h2 { font-size: 16px; margin-bottom: 12px; }
+  .modal .form-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+  .modal label { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .modal textarea {
+    padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;
+    font-size: 11px; font-family: monospace; min-height: 200px;
+    width: 100%; resize: vertical;
+  }
+  .modal-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 12px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: white;
+    padding: 8px 16px; border-radius: 6px;
+    font-size: 12px; font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 100; opacity: 0;
+    transition: opacity 0.3s; pointer-events: none; max-width: 90vw;
+  }
+  .toast.show { opacity: 1; }
+
+  /* SAMPLE DATA BANNER */
+  .sample-banner {
+    background: linear-gradient(90deg, #fef3c7, #fde68a);
+    border: 1px solid #f59e0b; padding: 8px 12px; border-radius: 6px;
+    font-size: 12px; color: #92400e; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .sample-banner strong { color: #78350f; }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    body { padding: 6px; font-size: 13px; }
+    .section { padding: 10px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .kpi-card .value { font-size: 20px; }
+    .bar-row { grid-template-columns: 90px 1fr 32px; font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="header-top">
+    <div class="header-title"><span class="emoji">📊</span> Análisis Táctico</div>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="loadFromApp()">📱 Desde Pizarra</button>
+      <button class="btn" onclick="openImportModal()">📥 Importar JSON</button>
+      <button class="btn" onclick="loadSampleData()">🎮 Datos Demo</button>
+      <button class="btn" onclick="exportReport()">📄 Exportar Informe</button>
+    </div>
+  </div>
+  <div class="match-info" id="matchInfo" style="display:none;">
+    <span class="team-color" id="homeColor"></span>
+    <span class="team-name" id="homeName"></span>
+    <span class="vs">vs</span>
+    <span class="team-name" id="awayName"></span>
+    <span class="team-color" id="awayColor"></span>
+    <span style="color:var(--muted);font-size:11px;">·</span>
+    <span id="competition" style="color:var(--muted);font-size:11px;"></span>
+    <span style="color:var(--muted);font-size:11px;">·</span>
+    <span id="eventCount" style="color:var(--muted);font-size:11px;"></span>
+  </div>
+</header>
+
+<div class="sample-banner" id="sampleBanner" style="display:none;">
+  <strong>📊 Datos demo cargados:</strong>
+  <span>Real Madrid vs Barcelona (La Liga) — 12 eventos simulados. Carga tus propios datos con "Desde Pizarra" o "Importar JSON".</span>
+</div>
+
+<div id="emptyState" class="empty">
+  <div style="font-size:48px;">📊</div>
+  <h2>Análisis Táctico</h2>
+  <p>Carga un partido para ver KPIs avanzados, visualizaciones interactivas y recomendaciones automáticas de mejora.</p>
+  <div class="actions">
+    <button class="btn btn-primary" onclick="loadFromApp()">📱 Cargar desde Pizarra Táctica</button>
+    <button class="btn" onclick="openImportModal()">📥 Importar JSON</button>
+    <button class="btn" onclick="loadSampleData()">🎮 Probar con datos demo</button>
+  </div>
+</div>
+
+<div id="analysisContent" style="display:none;">
+
+  <!-- KPIs PRINCIPALES -->
+  <div class="section">
+    <h2><span class="icon">⚡</span> KPIs Principales</h2>
+    <div class="kpi-grid" id="kpiGrid"></div>
+  </div>
+
+  <!-- POSESIÓN Y EFICIENCIA -->
+  <div class="section">
+    <h2><span class="icon">🎯</span> Posesión y Eficiencia</h2>
+    <div class="tabs">
+      <button class="tab active" onclick="showAnalysisTab('possession')">Comparativa</button>
+      <button class="tab" onclick="showAnalysisTab('efficiency')">Eficiencia</button>
+      <button class="tab" onclick="showAnalysisTab('breakdown')">Desglose</button>
+    </div>
+    <div id="possessionTab"></div>
+  </div>
+
+  <!-- DISTRIBUCIÓN ESPACIAL -->
+  <div class="section">
+    <h2><span class="icon">🗺️</span> Distribución Espacial</h2>
+    <div class="tabs">
+      <button class="tab active" onclick="showHeatmapTab('all')">Ambos equipos</button>
+      <button class="tab" onclick="showHeatmapTab('home')">Local</button>
+      <button class="tab" onclick="showHeatmapTab('away')">Visitante</button>
+      <button class="tab" onclick="showHeatmapTab('attack')">Ataque</button>
+      <button class="tab" onclick="showHeatmapTab('defense')">Defensa</button>
+    </div>
+    <div id="heatmapContainer"></div>
+  </div>
+
+  <!-- TENDENCIA TEMPORAL -->
+  <div class="section">
+    <h2><span class="icon">📈</span> Tendencia Temporal</h2>
+    <div class="tabs">
+      <button class="tab active" onclick="showTimelineTab('all')">Todo el partido</button>
+      <button class="tab" onclick="showTimelineTab('h1')">1ª Mitad</button>
+      <button class="tab" onclick="showTimelineTab('h2')">2ª Mitad</button>
+    </div>
+    <div id="timelineTrend"></div>
+  </div>
+
+  <!-- TOP JUGADORES -->
+  <div class="section">
+    <h2><span class="icon">⭐</span> Top Jugadores</h2>
+    <div id="topPlayers"></div>
+  </div>
+
+  <!-- RECOMENDACIONES -->
+  <div class="section">
+    <h2><span class="icon">💡</span> Recomendaciones Automáticas</h2>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">
+      Análisis automático de los datos para detectar áreas de mejora. Las recomendaciones se generan según patrones detectados.
+    </p>
+    <div id="recommendations" class="recommendations"></div>
+  </div>
+
+</div>
+</div>
+
+<!-- Modal Import -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <h2>📥 Importar JSON del partido</h2>
+    <div class="form-row">
+      <label>Pega aquí el JSON exportado desde la Pizarra Táctica</label>
+      <textarea id="importTextarea" placeholder='{"version":1,"match":{...},"players":[...],"events":[...]}'></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('importModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="importData()">Analizar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============= CONSTANTS =============
+const EVENT_TYPES = {
+  loss: { label: 'Pérdida', icon: '⊘', short: 'PÉRD', category: 'error' },
+  recovery: { label: 'Recuperación', icon: '🛡', short: 'REC', category: 'positive' },
+  shot: { label: 'Remate', icon: '🎯', short: 'REM', category: 'attack' },
+  shot_on: { label: 'Tiro a puerta', icon: '🥅', short: 'TPU', category: 'attack' },
+  goal: { label: 'Gol', icon: '🏆', short: 'GOL', category: 'attack' },
+  foul: { label: 'Falta', icon: '🚩', short: 'FLT', category: 'discipline' },
+  pass_ok: { label: 'Pase ok', icon: '→', short: 'PAS', category: 'possession' },
+  pass_fail: { label: 'Pase fallado', icon: '✗', short: 'PF', category: 'error' },
+  interception: { label: 'Intercepción', icon: '⚔', short: 'INT', category: 'positive' },
+  cross: { label: 'Centro', icon: '✝', short: 'CEN', category: 'attack' },
+  yellow: { label: 'Tarjeta amarilla', icon: '🟨', short: 'TA', category: 'discipline' },
+  red: { label: 'Tarjeta roja', icon: '🟥', short: 'TR', category: 'discipline' },
+  sub: { label: 'Cambio', icon: '🔄', short: 'CAM', category: 'neutral' },
+};
+
+let state = {
+  match: null,
+  heatmapFilter: 'all',
+  timelineFilter: 'all',
+  analysisTab: 'possession',
+};
+
+// ============= HELPERS =============
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 9); }
+
+// ============= DATA LOADERS =============
+function loadFromApp() {
+  try {
+    const raw = localStorage.getItem('pizarra-tactica-data-v2');
+    if (!raw) {
+      showToast('No hay partidos guardados en Pizarra. Usa Importar JSON o Datos Demo.');
+      return;
+    }
+    const data = JSON.parse(raw);
+    if (!data.matches || data.matches.length === 0) {
+      showToast('No hay partidos guardados en Pizarra.');
+      return;
+    }
+    // Use the most recent match
+    const m = data.matches[0];
+    convertAndLoad(m, false);
+  } catch (e) {
+    showToast('Error al cargar desde Pizarra: ' + e.message);
+  }
+}
+
+function openImportModal() {
+  document.getElementById('importTextarea').value = '';
+  openModal('importModal');
+}
+
+function importData() {
+  const json = document.getElementById('importTextarea').value.trim();
+  if (!json) {
+    showToast('Pega el JSON del partido');
+    return;
+  }
+  try {
+    const bundle = JSON.parse(json);
+    if (bundle.version === 1 && bundle.match) {
+      // It's an export bundle — reconstruct match
+      const m = bundle.match;
+      const players = (bundle.players || []).map((p, i) => ({
+        id: 'pl_' + i, team: p.team, name: p.name, number: p.number, position: p.position,
+      }));
+      const events = (bundle.events || []).map((e, i) => ({
+        id: 'ev_' + i, type: e.type, team: e.team,
+        playerId: e.playerIndex != null && e.playerIndex < players.length ? players[e.playerIndex].id : null,
+        cellRow: e.cellRow, cellCol: e.cellCol,
+        minute: e.minute, half: e.half, addedTime: e.addedTime || 0,
+        createdAt: e.createdAt,
+      }));
+      convertAndLoad({ ...m, players, events }, false);
+      closeModal('importModal');
+    } else if (bundle.id && bundle.homeTeam) {
+      // It's a direct match object
+      convertAndLoad(bundle, false);
+      closeModal('importModal');
+    } else {
+      throw new Error('Formato no reconocido');
+    }
+  } catch (e) {
+    showToast('JSON inválido: ' + e.message);
+  }
+}
+
+function loadSampleData() {
+  const sample = generateSampleMatch();
+  convertAndLoad(sample, true);
+}
+
+function convertAndLoad(matchData, isSample) {
+  state.match = matchData;
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('analysisContent').style.display = 'block';
+  document.getElementById('matchInfo').style.display = 'flex';
+  document.getElementById('sampleBanner').style.display = isSample ? 'flex' : 'none';
+
+  document.getElementById('homeColor').style.background = matchData.homeColor || '#dc2626';
+  document.getElementById('awayColor').style.background = matchData.awayColor || '#2563eb';
+  document.getElementById('homeName').textContent = matchData.homeTeam;
+  document.getElementById('awayName').textContent = matchData.awayTeam;
+  document.getElementById('competition').textContent = matchData.competition || 'Partido';
+  document.getElementById('eventCount').textContent = `${matchData.events.length} eventos`;
+
+  renderAll();
+  showToast(`Partido cargado: ${matchData.events.length} eventos`);
+}
+
+function generateSampleMatch() {
+  // Realistic sample match: Real Madrid vs Barcelona, 12 events
+  return {
+    id: 'sample',
+    homeTeam: 'Real Madrid',
+    awayTeam: 'Barcelona',
+    competition: 'La Liga',
+    homeColor: '#dc2626',
+    awayColor: '#2563eb',
+    gridRows: 6,
+    gridCols: 6,
+    halfDuration: 45,
+    players: [
+      { id: 'p1', team: 'home', name: 'Vinicius', number: 7, position: 'DEL' },
+      { id: 'p2', team: 'home', name: 'Bellingham', number: 5, position: 'MED' },
+      { id: 'p3', team: 'home', name: 'Modric', number: 10, position: 'MED' },
+      { id: 'p4', team: 'away', name: 'Lewandowski', number: 9, position: 'DEL' },
+      { id: 'p5', team: 'away', name: 'Pedri', number: 8, position: 'MED' },
+      { id: 'p6', team: 'away', name: 'Gavi', number: 6, position: 'MED' },
+    ],
+    events: [
+      // 1H
+      { id: 'e1', type: 'loss', team: 'home', playerId: 'p3', cellRow: 2, cellCol: 1, minute: 8, half: 1, addedTime: 0, createdAt: '2026-01-01T10:08:00Z' },
+      { id: 'e2', type: 'recovery', team: 'home', playerId: 'p2', cellRow: 4, cellCol: 3, minute: 14, half: 1, addedTime: 0, createdAt: '2026-01-01T10:14:00Z' },
+      { id: 'e3', type: 'pass_ok', team: 'home', playerId: 'p3', cellRow: 4, cellCol: 4, minute: 22, half: 1, addedTime: 0, createdAt: '2026-01-01T10:22:00Z' },
+      { id: 'e4', type: 'goal', team: 'home', playerId: 'p1', cellRow: 5, cellCol: 2, minute: 23, half: 1, addedTime: 0, createdAt: '2026-01-01T10:23:00Z' },
+      { id: 'e5', type: 'foul', team: 'away', playerId: 'p6', cellRow: 3, cellCol: 3, minute: 31, half: 1, addedTime: 0, createdAt: '2026-01-01T10:31:00Z' },
+      { id: 'e6', type: 'yellow', team: 'away', playerId: 'p6', cellRow: 3, cellCol: 3, minute: 31, half: 1, addedTime: 0, createdAt: '2026-01-01T10:31:00Z' },
+      { id: 'e7', type: 'loss', team: 'away', playerId: 'p5', cellRow: 2, cellCol: 4, minute: 38, half: 1, addedTime: 0, createdAt: '2026-01-01T10:38:00Z' },
+      { id: 'e8', type: 'interception', team: 'home', playerId: 'p2', cellRow: 1, cellCol: 2, minute: 41, half: 1, addedTime: 0, createdAt: '2026-01-01T10:41:00Z' },
+      { id: 'e9', type: 'foul', team: 'away', playerId: 'p4', cellRow: 4, cellCol: 1, minute: 45, half: 1, addedTime: 2, createdAt: '2026-01-01T10:45:00Z' },
+      // 2H
+      { id: 'e10', type: 'loss', team: 'away', playerId: 'p5', cellRow: 2, cellCol: 3, minute: 53, half: 2, addedTime: 0, createdAt: '2026-01-01T11:08:00Z' },
+      { id: 'e11', type: 'recovery', team: 'home', playerId: 'p2', cellRow: 1, cellCol: 3, minute: 56, half: 2, addedTime: 0, createdAt: '2026-01-01T11:11:00Z' },
+      { id: 'e12', type: 'shot', team: 'home', playerId: 'p1', cellRow: 5, cellCol: 3, minute: 61, half: 2, addedTime: 0, createdAt: '2026-01-01T11:16:00Z' },
+      { id: 'e13', type: 'shot_on', team: 'home', playerId: 'p1', cellRow: 5, cellCol: 4, minute: 67, half: 2, addedTime: 0, createdAt: '2026-01-01T11:22:00Z' },
+      { id: 'e14', type: 'goal', team: 'away', playerId: 'p4', cellRow: 0, cellCol: 2, minute: 73, half: 2, addedTime: 0, createdAt: '2026-01-01T11:28:00Z' },
+      { id: 'e15', type: 'cross', team: 'home', playerId: 'p3', cellRow: 4, cellCol: 5, minute: 78, half: 2, addedTime: 0, createdAt: '2026-01-01T11:33:00Z' },
+      { id: 'e16', type: 'sub', team: 'home', playerId: null, cellRow: 3, cellCol: 3, minute: 80, half: 2, addedTime: 0, createdAt: '2026-01-01T11:35:00Z' },
+      { id: 'e17', type: 'loss', team: 'home', playerId: 'p3', cellRow: 4, cellCol: 2, minute: 84, half: 2, addedTime: 0, createdAt: '2026-01-01T11:39:00Z' },
+      { id: 'e18', type: 'shot', team: 'away', playerId: 'p4', cellRow: 5, cellCol: 4, minute: 88, half: 2, addedTime: 0, createdAt: '2026-01-01T11:43:00Z' },
+      { id: 'e19', type: 'red', team: 'away', playerId: 'p6', cellRow: 3, cellCol: 4, minute: 90, half: 2, addedTime: 3, createdAt: '2026-01-01T11:45:00Z' },
+    ],
+  };
+}
+
+// ============= RENDER ALL =============
+function renderAll() {
+  renderKPIs();
+  renderPossession();
+  renderHeatmap();
+  renderTimeline();
+  renderTopPlayers();
+  renderRecommendations();
+}
+
+// ============= KPIs =============
+function renderKPIs() {
+  const m = state.match;
+  const events = m.events;
+
+  // Calculate metrics
+  const homeEvents = events.filter(e => e.team === 'home');
+  const awayEvents = events.filter(e => e.team === 'away');
+
+  const homeGoals = homeEvents.filter(e => e.type === 'goal').length;
+  const awayGoals = awayEvents.filter(e => e.type === 'goal').length;
+
+  const homeShots = homeEvents.filter(e => e.type === 'shot' || e.type === 'shot_on' || e.type === 'goal').length;
+  const awayShots = awayEvents.filter(e => e.type === 'shot' || e.type === 'shot_on' || e.type === 'goal').length;
+
+  const homeShotsOn = homeEvents.filter(e => e.type === 'shot_on' || e.type === 'goal').length;
+  const awayShotsOn = awayEvents.filter(e => e.type === 'shot_on' || e.type === 'goal').length;
+
+  const homeLosses = homeEvents.filter(e => e.type === 'loss' || e.type === 'pass_fail').length;
+  const awayLosses = awayEvents.filter(e => e.type === 'loss' || e.type === 'pass_fail').length;
+
+  const homeRecov = homeEvents.filter(e => e.type === 'recovery' || e.type === 'interception').length;
+  const awayRecov = awayEvents.filter(e => e.type === 'recovery' || e.type === 'interception').length;
+
+  const homeFouls = homeEvents.filter(e => e.type === 'foul').length;
+  const awayFouls = awayEvents.filter(e => e.type === 'foul').length;
+
+  const homePassOk = homeEvents.filter(e => e.type === 'pass_ok').length;
+  const awayPassOk = awayEvents.filter(e => e.type === 'pass_ok').length;
+
+  const homePassFail = homeEvents.filter(e => e.type === 'pass_fail').length;
+  const awayPassFail = awayEvents.filter(e => e.type === 'pass_fail').length;
+
+  const homePassTotal = homePassOk + homePassFail;
+  const awayPassTotal = awayPassOk + awayPassFail;
+  const homePassAcc = homePassTotal > 0 ? (homePassOk / homePassTotal * 100) : 0;
+  const awayPassAcc = awayPassTotal > 0 ? (awayPassOk / awayPassTotal * 100) : 0;
+
+  const totalEvents = events.length;
+  const homePossession = totalEvents > 0 ? (homeEvents.length / totalEvents * 100).toFixed(1) : 0;
+  const awayPossession = totalEvents > 0 ? (awayEvents.length / totalEvents * 100).toFixed(1) : 0;
+
+  const h1Events = events.filter(e => e.half === 1).length;
+  const h2Events = events.filter(e => e.half === 2).length;
+
+  const homeYellow = homeEvents.filter(e => e.type === 'yellow').length;
+  const awayYellow = awayEvents.filter(e => e.type === 'yellow').length;
+  const homeRed = homeEvents.filter(e => e.type === 'red').length;
+  const awayRed = awayEvents.filter(e => e.type === 'red').length;
+
+  const kpis = [
+    {
+      label: 'Resultado', value: `${homeGoals}-${awayGoals}`, sub: 'Goles',
+      cls: homeGoals > awayGoals ? 'good' : (homeGoals < awayGoals ? 'bad' : 'warn'),
+      homeaway: true, home: homeGoals, away: awayGoals,
+    },
+    {
+      label: 'Posesión', value: `${homePossession}%`, sub: `vs ${awayPossession}%`,
+      cls: homePossession > awayPossession ? 'good' : 'warn',
+      homeaway: true, home: `${homePossession}%`, away: `${awayPossession}%`,
+    },
+    {
+      label: 'Remates', value: homeShots + awayShots, sub: `${homeShotsOn} a puerta`,
+      cls: 'info',
+      homeaway: true, home: homeShots, away: awayShots,
+    },
+    {
+      label: 'Precisión pase', value: `${((homePassAcc + awayPassAcc) / 2).toFixed(0)}%`, sub: 'promedio',
+      cls: (homePassAcc + awayPassAcc) / 2 > 75 ? 'good' : 'warn',
+      homeaway: true, home: `${homePassAcc.toFixed(0)}%`, away: `${awayPassAcc.toFixed(0)}%`,
+    },
+    {
+      label: 'Pérdidas', value: homeLosses + awayLosses, sub: 'pases fallados',
+      cls: homeLosses + awayLosses > 15 ? 'bad' : 'warn',
+      homeaway: true, home: homeLosses, away: awayLosses,
+    },
+    {
+      label: 'Recuperaciones', value: homeRecov + awayRecov, sub: 'balones robados',
+      cls: 'good',
+      homeaway: true, home: homeRecov, away: awayRecov,
+    },
+    {
+      label: 'Faltas', value: homeFouls + awayFouls, sub: 'infracciones',
+      cls: homeFouls + awayFouls > 20 ? 'bad' : 'warn',
+      homeaway: true, home: homeFouls, away: awayFouls,
+    },
+    {
+      label: 'Tarjetas', value: `${homeYellow + awayYellow}🟨 ${homeRed + awayRed}🟥`, sub: 'amarillas/rojas',
+      cls: homeRed + awayRed > 0 ? 'bad' : 'warn',
+      homeaway: true, home: `${homeYellow}🟨`, away: `${awayYellow}🟨`,
+    },
+    {
+      label: 'Eventos 1H', value: h1Events, sub: 'primera mitad',
+      cls: 'info',
+    },
+    {
+      label: 'Eventos 2H', value: h2Events, sub: 'segunda mitad',
+      cls: 'info',
+    },
+  ];
+
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = kpis.map(k => `
+    <div class="kpi-card ${k.cls}">
+      <div class="label">${k.label}</div>
+      <div class="value">${k.value}</div>
+      <div class="sub">${k.sub}</div>
+      ${k.homeaway ? `<div class="home-away">
+        <span class="h">${k.home}</span>
+        <span class="a">${k.away}</span>
+      </div>` : ''}
+    </div>
+  `).join('');
+}
+
+// ============= POSSESSION / EFFICIENCY =============
+function showAnalysisTab(tab) {
+  state.analysisTab = tab;
+  document.querySelectorAll('.section:nth-of-type(2) .tab').forEach((t, i) => {
+    t.classList.toggle('active', i === ({possession: 0, efficiency: 1, breakdown: 2})[tab]);
+  });
+  renderPossession();
+}
+
+function renderPossession() {
+  const m = state.match;
+  const events = m.events;
+  const tab = state.analysisTab;
+
+  const container = document.getElementById('possessionTab');
+
+  if (tab === 'possession') {
+    // Bar chart comparing teams per event type
+    const types = ['loss', 'recovery', 'shot', 'shot_on', 'goal', 'foul', 'pass_ok', 'pass_fail', 'interception', 'cross', 'yellow', 'red'];
+    const maxCount = Math.max(1, ...types.map(t => Math.max(
+      events.filter(e => e.type === t && e.team === 'home').length,
+      events.filter(e => e.type === t && e.team === 'away').length
+    )));
+
+    container.innerHTML = `
+      <div class="chart-container">
+        <div class="chart-title">Comparativa por tipo de evento</div>
+        <div class="bar-chart">
+          ${types.map(t => {
+            const et = EVENT_TYPES[t];
+            const h = events.filter(e => e.type === t && e.team === 'home').length;
+            const a = events.filter(e => e.type === t && e.team === 'away').length;
+            const total = h + a;
+            if (total === 0) return '';
+            const hPct = (h / maxCount * 100).toFixed(1);
+            const aPct = (a / maxCount * 100).toFixed(1);
+            return `
+              <div class="bar-row">
+                <div class="bar-label">${et.icon} ${et.label}</div>
+                <div class="bar-track">
+                  <div class="bar-fill home" style="width:${hPct}%;"></div>
+                  <div class="bar-fill away" style="width:${aPct}%;"></div>
+                </div>
+                <div class="bar-value">${h}/${a}</div>
+              </div>
+            `;
+          }).join('') || '<div style="text-align:center;color:var(--muted);padding:20px;font-size:12px;">Sin eventos</div>'}
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center;">
+          <span style="display:inline-block;width:10px;height:10px;background:var(--home);border-radius:2px;margin-right:4px;"></span>${m.homeTeam}
+          <span style="display:inline-block;width:10px;height:10px;background:var(--away);border-radius:2px;margin:0 4px 0 12px;"></span>${m.awayTeam}
+        </div>
+      </div>
+    `;
+  } else if (tab === 'efficiency') {
+    // Efficiency metrics: shots/goals, recovery/loss ratio, etc.
+    const homeShots = events.filter(e => e.team === 'home' && ['shot', 'shot_on', 'goal'].includes(e.type)).length;
+    const awayShots = events.filter(e => e.team === 'away' && ['shot', 'shot_on', 'goal'].includes(e.type)).length;
+    const homeGoals = events.filter(e => e.team === 'home' && e.type === 'goal').length;
+    const awayGoals = events.filter(e => e.team === 'away' && e.type === 'goal').length;
+    const homeConv = homeShots > 0 ? (homeGoals / homeShots * 100).toFixed(0) : 0;
+    const awayConv = awayShots > 0 ? (awayGoals / awayShots * 100).toFixed(0) : 0;
+
+    const homeLosses = events.filter(e => e.team === 'home' && ['loss', 'pass_fail'].includes(e.type)).length;
+    const awayLosses = events.filter(e => e.team === 'away' && ['loss', 'pass_fail'].includes(e.type)).length;
+    const homeRecov = events.filter(e => e.team === 'home' && ['recovery', 'interception'].includes(e.type)).length;
+    const awayRecov = events.filter(e => e.team === 'away' && ['recovery', 'interception'].includes(e.type)).length;
+    const homeBalance = homeRecov - homeLosses;
+    const awayBalance = awayRecov - awayLosses;
+
+    container.innerHTML = `
+      <div class="chart-container">
+        <div class="chart-title">Conversión de remates (goles / remates)</div>
+        <table>
+          <tr>
+            <th>Equipo</th>
+            <th class="number">Remates</th>
+            <th class="number">Goles</th>
+            <th class="number">Conversión</th>
+          </tr>
+          <tr>
+            <td class="home">${m.homeTeam}</td>
+            <td class="number">${homeShots}</td>
+            <td class="number">${homeGoals}</td>
+            <td class="number">${homeConv}%</td>
+          </tr>
+          <tr>
+            <td class="away">${m.awayTeam}</td>
+            <td class="number">${awayShots}</td>
+            <td class="number">${awayGoals}</td>
+            <td class="number">${awayConv}%</td>
+          </tr>
+        </table>
+      </div>
+      <div class="chart-container">
+        <div class="chart-title">Balance posesión (recuperaciones - pérdidas)</div>
+        <table>
+          <tr>
+            <th>Equipo</th>
+            <th class="number">Recuper.</th>
+            <th class="number">Pérdidas</th>
+            <th class="number">Balance</th>
+          </tr>
+          <tr>
+            <td class="home">${m.homeTeam}</td>
+            <td class="number">${homeRecov}</td>
+            <td class="number">${homeLosses}</td>
+            <td class="number" style="color:${homeBalance >= 0 ? 'var(--good)' : 'var(--bad)'};">${homeBalance > 0 ? '+' : ''}${homeBalance}</td>
+          </tr>
+          <tr>
+            <td class="away">${m.awayTeam}</td>
+            <td class="number">${awayRecov}</td>
+            <td class="number">${awayLosses}</td>
+            <td class="number" style="color:${awayBalance >= 0 ? 'var(--good)' : 'var(--bad)'};">${awayBalance > 0 ? '+' : ''}${awayBalance}</td>
+          </tr>
+        </table>
+      </div>
+    `;
+  } else if (tab === 'breakdown') {
+    // Detailed breakdown by half
+    const types = Object.keys(EVENT_TYPES);
+    const h1Events = events.filter(e => e.half === 1);
+    const h2Events = events.filter(e => e.half === 2);
+
+    container.innerHTML = `
+      <div class="chart-container">
+        <div class="chart-title">Desglose por mitad</div>
+        <table>
+          <tr>
+            <th>Tipo</th>
+            <th class="number">1H Local</th>
+            <th class="number">1H Visit.</th>
+            <th class="number">2H Local</th>
+            <th class="number">2H Visit.</th>
+          </tr>
+          ${types.map(t => {
+            const et = EVENT_TYPES[t];
+            const h1h = h1Events.filter(e => e.type === t && e.team === 'home').length;
+            const h1a = h1Events.filter(e => e.type === t && e.team === 'away').length;
+            const h2h = h2Events.filter(e => e.type === t && e.team === 'home').length;
+            const h2a = h2Events.filter(e => e.type === t && e.team === 'away').length;
+            const total = h1h + h1a + h2h + h2a;
+            if (total === 0) return '';
+            return `
+              <tr>
+                <td>${et.icon} ${et.label}</td>
+                <td class="number home">${h1h || '-'}</td>
+                <td class="number away">${h1a || '-'}</td>
+                <td class="number home">${h2h || '-'}</td>
+                <td class="number away">${h2a || '-'}</td>
+              </tr>
+            `;
+          }).join('')}
+        </table>
+      </div>
+    `;
+  }
+}
+
+// ============= HEATMAP =============
+function showHeatmapTab(filter) {
+  state.heatmapFilter = filter;
+  document.querySelectorAll('.section:nth-of-type(3) .tab').forEach((t, i) => {
+    t.classList.toggle('active', i === ({all: 0, home: 1, away: 2, attack: 3, defense: 4})[filter]);
+  });
+  renderHeatmap();
+}
+
+function renderHeatmap() {
+  const m = state.match;
+  const filter = state.heatmapFilter;
+  const container = document.getElementById('heatmapContainer');
+
+  let events = m.events;
+  if (filter === 'home') events = events.filter(e => e.team === 'home');
+  else if (filter === 'away') events = events.filter(e => e.team === 'away');
+  else if (filter === 'attack') events = events.filter(e => ['shot', 'shot_on', 'goal', 'cross'].includes(e.type));
+  else if (filter === 'defense') events = events.filter(e => ['recovery', 'interception', 'foul'].includes(e.type));
+
+  const maxCount = Math.max(1, ...Array.from({length: m.gridRows * m.gridCols}, (_, i) => {
+    const row = Math.floor(i / m.gridCols), col = i % m.gridCols;
+    return events.filter(e => e.cellRow === row && e.cellCol === col).length;
+  }));
+
+  let cells = [];
+  for (let r = 0; r < m.gridRows; r++) {
+    for (let c = 0; c < m.gridCols; c++) {
+      const count = events.filter(e => e.cellRow === r && e.cellCol === c).length;
+      const ratio = count / maxCount;
+      const bg = count === 0 ? 'transparent' :
+        `rgba(255, ${Math.round(200 * (1 - ratio))}, ${Math.round(60 * (1 - ratio))}, ${(0.25 + ratio * 0.65).toFixed(2)})`;
+      cells.push(`<div class="heatmap-cell" style="background:${bg};">${count > 0 ? count : ''}</div>`);
+    }
+  }
+
+  container.innerHTML = `
+    <div class="chart-container">
+      <div class="chart-title">Mapa de calor — ${filter === 'all' ? 'Todos los eventos' : filter === 'home' ? m.homeTeam : filter === 'away' ? m.awayTeam : filter === 'attack' ? 'Acciones de ataque' : 'Acciones defensivas'} (${events.length} eventos)</div>
+      <div class="heatmap-field">
+        <div class="heatmap-stripes">${Array(7).fill('<div></div>').join('')}</div>
+        <div class="heatmap-lines">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+            <rect x="2" y="2" width="96" height="96" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.4"/>
+            <line x1="50" y1="2" x2="50" y2="98" stroke="rgba(255,255,255,0.5)" stroke-width="0.4"/>
+            <circle cx="50" cy="50" r="9" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.4"/>
+            <rect x="2" y="25" width="14" height="50" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.4"/>
+            <rect x="2" y="38" width="6" height="24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.4"/>
+            <rect x="84" y="25" width="14" height="50" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.4"/>
+            <rect x="92" y="38" width="6" height="24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.4"/>
+          </svg>
+        </div>
+        <div class="heatmap-grid" style="grid-template-columns: repeat(${m.gridCols}, 1fr); grid-template-rows: repeat(${m.gridRows}, 1fr);">
+          ${cells.join('')}
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;display:flex;justify-content:space-between;">
+        <span>Defensa local ←</span>
+        <span>Centro del campo</span>
+        <span>→ Ataque local</span>
+      </div>
+    </div>
+  `;
+}
+
+// ============= TIMELINE =============
+function showTimelineTab(filter) {
+  state.timelineFilter = filter;
+  document.querySelectorAll('.section:nth-of-type(4) .tab').forEach((t, i) => {
+    t.classList.toggle('active', i === ({all: 0, h1: 1, h2: 2})[filter]);
+  });
+  renderTimeline();
+}
+
+function renderTimeline() {
+  const m = state.match;
+  const filter = state.timelineFilter;
+  const container = document.getElementById('timelineTrend');
+
+  let events = m.events;
+  if (filter === 'h1') events = events.filter(e => e.half === 1);
+  else if (filter === 'h2') events = events.filter(e => e.half === 2);
+
+  // Group events by 5-min bins
+  const halfDuration = m.halfDuration || 45;
+  const maxMin = filter === 'h1' ? halfDuration : (filter === 'h2' ? halfDuration : halfDuration * 2);
+  const binSize = 5;
+  const numBins = Math.ceil(maxMin / binSize);
+
+  const bins = Array.from({length: numBins}, (_, i) => ({
+    start: i * binSize + (filter === 'h2' ? halfDuration : 0),
+    end: (i + 1) * binSize + (filter === 'h2' ? halfDuration : 0),
+    home: 0, away: 0,
+  }));
+
+  events.forEach(e => {
+    const min = e.minute + (e.half === 2 ? halfDuration : 0);
+    const binIdx = Math.floor((min - (filter === 'h2' ? halfDuration : 0)) / binSize);
+    if (binIdx >= 0 && binIdx < numBins) {
+      if (e.team === 'home') bins[binIdx].home++;
+      else bins[binIdx].away++;
+    }
+  });
+
+  const maxBar = Math.max(1, ...bins.map(b => Math.max(b.home, b.away)));
+  const binHeight = 80;
+
+  container.innerHTML = `
+    <div class="chart-container">
+      <div class="chart-title">Eventos por tramo de 5 minutos</div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;height:${binHeight + 20}px;padding:0 4px;border-bottom:1px solid var(--border);position:relative;">
+        ${bins.map((b, i) => {
+          const hH = (b.home / maxBar * binHeight).toFixed(0);
+          const aH = (b.away / maxBar * binHeight).toFixed(0);
+          return `
+            <div style="display:flex;flex-direction:column;align-items:center;flex:1;">
+              <div style="display:flex;align-items:flex-end;gap:1px;height:${binHeight}px;">
+                <div style="width:8px;height:${hH}px;background:var(--home);border-radius:2px 2px 0 0;min-height:1px;" title="${m.homeTeam}: ${b.home} eventos"></div>
+                <div style="width:8px;height:${aH}px;background:var(--away);border-radius:2px 2px 0 0;min-height:1px;" title="${m.awayTeam}: ${b.away} eventos"></div>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">${b.start}'</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;display:flex;justify-content:center;gap:12px;">
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--home);border-radius:2px;margin-right:4px;"></span>${m.homeTeam}</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--away);border-radius:2px;margin-right:4px;"></span>${m.awayTeam}</span>
+      </div>
+    </div>
+  `;
+}
+
+// ============= TOP PLAYERS =============
+function renderTopPlayers() {
+  const m = state.match;
+  const events = m.events;
+  const container = document.getElementById('topPlayers');
+
+  if (!m.players || m.players.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:12px;">No hay jugadores registrados en este partido.</div>';
+    return;
+  }
+
+  const playerStats = m.players.map(p => {
+    const evs = events.filter(e => e.playerId === p.id);
+    return {
+      player: p,
+      total: evs.length,
+      goals: evs.filter(e => e.type === 'goal').length,
+      shots: evs.filter(e => ['shot', 'shot_on', 'goal'].includes(e.type)).length,
+      losses: evs.filter(e => ['loss', 'pass_fail'].includes(e.type)).length,
+      recoveries: evs.filter(e => ['recovery', 'interception'].includes(e.type)).length,
+      fouls: evs.filter(e => e.type === 'foul').length,
+      cards: evs.filter(e => ['yellow', 'red'].includes(e.type)).length,
+    };
+  }).filter(s => s.total > 0).sort((a, b) => b.total - a.total);
+
+  if (playerStats.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:12px;">Ningún jugador tiene eventos asociados.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <table>
+      <tr>
+        <th>#</th>
+        <th>Jugador</th>
+        <th class="number">Total</th>
+        <th class="number">Goles</th>
+        <th class="number">Remates</th>
+        <th class="number">Recup.</th>
+        <th class="number">Pérdidas</th>
+        <th class="number">Faltas</th>
+      </tr>
+      ${playerStats.map((s, i) => {
+        const color = s.player.team === 'home' ? m.homeColor : m.awayColor;
+        return `
+          <tr>
+            <td>${i + 1}</td>
+            <td>
+              <span style="display:inline-block;width:22px;height:22px;border-radius:4px;background:${color};color:white;font-size:10px;font-weight:700;text-align:center;line-height:22px;margin-right:6px;">${s.player.number || '—'}</span>
+              ${s.player.name}
+              <div style="font-size:10px;color:var(--muted);margin-left:28px;">${s.player.team === 'home' ? m.homeTeam : m.awayTeam}${s.player.position ? ' · ' + s.player.position : ''}</div>
+            </td>
+            <td class="number" style="font-weight:700;">${s.total}</td>
+            <td class="number">${s.goals || '-'}</td>
+            <td class="number">${s.shots || '-'}</td>
+            <td class="number">${s.recoveries || '-'}</td>
+            <td class="number">${s.losses || '-'}</td>
+            <td class="number">${s.fouls || '-'}</td>
+          </tr>
+        `;
+      }).join('')}
+    </table>
+  `;
+}
+
+// ============= RECOMMENDATIONS =============
+function renderRecommendations() {
+  const m = state.match;
+  const events = m.events;
+  const container = document.getElementById('recommendations');
+
+  const recs = [];
+
+  // Calculate metrics
+  const homeEvents = events.filter(e => e.team === 'home');
+  const awayEvents = events.filter(e => e.team === 'away');
+  const homeGoals = homeEvents.filter(e => e.type === 'goal').length;
+  const awayGoals = awayEvents.filter(e => e.type === 'goal').length;
+  const homeShots = homeEvents.filter(e => ['shot', 'shot_on', 'goal'].includes(e.type)).length;
+  const awayShots = awayEvents.filter(e => ['shot', 'shot_on', 'goal'].includes(e.type)).length;
+  const homeLosses = homeEvents.filter(e => ['loss', 'pass_fail'].includes(e.type)).length;
+  const awayLosses = awayEvents.filter(e => ['loss', 'pass_fail'].includes(e.type)).length;
+  const homeRecov = homeEvents.filter(e => ['recovery', 'interception'].includes(e.type)).length;
+  const awayRecov = awayEvents.filter(e => ['recovery', 'interception'].includes(e.type)).length;
+  const homeFouls = homeEvents.filter(e => e.type === 'foul').length;
+  const awayFouls = awayEvents.filter(e => e.type === 'foul').length;
+  const homeYellow = homeEvents.filter(e => e.type === 'yellow').length;
+  const awayYellow = awayEvents.filter(e => e.type === 'yellow').length;
+  const homeRed = homeEvents.filter(e => e.type === 'red').length;
+  const awayRed = awayEvents.filter(e => e.type === 'red').length;
+
+  const h1Events = events.filter(e => e.half === 1);
+  const h2Events = events.filter(e => e.half === 2);
+
+  // 1. Comparación de posesión
+  const totalEvents = events.length;
+  if (totalEvents > 0) {
+    const homePoss = (homeEvents.length / totalEvents * 100).toFixed(1);
+    const awayPoss = (awayEvents.length / totalEvents * 100).toFixed(1);
+    if (Math.abs(homePoss - awayPoss) > 15) {
+      const dominant = homePoss > awayPoss ? m.homeTeam : m.awayTeam;
+      const dominantPoss = Math.max(homePoss, awayPoss);
+      recs.push({
+        priority: 'med',
+        title: `Dominio de posesión: ${dominant}`,
+        desc: `${dominant} ha tenido ${dominantPoss}% de la actividad (${dominant === m.homeTeam ? homeEvents.length : awayEvents.length} eventos vs ${dominant === m.homeTeam ? awayEvents.length : homeEvents.length}).`,
+        data: `Posesión ${m.homeTeam}: ${homePoss}% | Posesión ${m.awayTeam}: ${awayPoss}%`,
+        action: `El equipo dominante debe aprovechar la posesión para generar más chances. El otro equipo debe mejorar la presión alta y las transiciones rápidas.`,
+      });
+    }
+  }
+
+  // 2. Conversión de remates
+  if (homeShots > 0 || awayShots > 0) {
+    const homeConv = homeShots > 0 ? (homeGoals / homeShots * 100) : 0;
+    const awayConv = awayShots > 0 ? (awayGoals / awayShots * 100) : 0;
+    if (homeConv < 15 && homeShots >= 3) {
+      recs.push({
+        priority: 'high',
+        title: `${m.homeTeam}: baja conversión de remates`,
+        desc: `${m.homeTeam} ha rematado ${homeShots} veces pero solo marcado ${homeGoals} gol(es). Conversión: ${homeConv.toFixed(0)}%.`,
+        data: `${homeGoals} goles / ${homeShots} remates = ${homeConv.toFixed(0)}% conversión`,
+        action: `Trabajar finalización en entrenamiento. En próximos partidos, priorizar calidad sobre cantidad: seleccionar mejor el remate y buscar mejores ángulos.`,
+      });
+    }
+    if (awayConv < 15 && awayShots >= 3) {
+      recs.push({
+        priority: 'high',
+        title: `${m.awayTeam}: baja conversión de remates`,
+        desc: `${m.awayTeam} ha rematado ${awayShots} veces pero solo marcado ${awayGoals} gol(es). Conversión: ${awayConv.toFixed(0)}%.`,
+        data: `${awayGoals} goles / ${awayShots} remates = ${awayConv.toFixed(0)}% conversión`,
+        action: `Trabajar finalización en entrenamiento. En próximos partidos, priorizar calidad sobre cantidad: seleccionar mejor el remate y buscar mejores ángulos.`,
+      });
+    }
+  }
+
+  // 3. Pérdidas en zona defensiva
+  const homeDefLosses = homeEvents.filter(e => ['loss', 'pass_fail'].includes(e.type) && e.cellRow <= 1).length;
+  const awayDefLosses = awayEvents.filter(e => ['loss', 'pass_fail'].includes(e.type) && e.cellRow >= m.gridRows - 2).length;
+  if (homeDefLosses > 0) {
+    recs.push({
+      priority: 'high',
+      title: `${m.homeTeam}: pérdidas en zona defensiva`,
+      desc: `Se han registrado ${homeDefLosses} pérdidas de balón en la zona defensiva (filas 1-2). Estas son las más peligrosas porque exponen al equipo a contraataques.`,
+      data: `${homeDefLosses} pérdidas en filas 1-2 de ${m.gridRows} totales`,
+      action: `Reforzar salida de balón: trabajar movimientos sin balón, apoyos al portero y transiciones cortas. Considerar juego más directo en situaciones de presión.`,
+    });
+  }
+  if (awayDefLosses > 0) {
+    recs.push({
+      priority: 'high',
+      title: `${m.awayTeam}: pérdidas en zona defensiva`,
+      desc: `Se han registrado ${awayDefLosses} pérdidas de balón en la zona defensiva.`,
+      data: `${awayDefLosses} pérdidas en filas ${m.gridRows-1}-${m.gridRows}`,
+      action: `Reforzar salida de balón: trabajar movimientos sin balón, apoyos al portero y transiciones cortas.`,
+    });
+  }
+
+  // 4. Balance recuperaciones vs pérdidas
+  const homeBalance = homeRecov - homeLosses;
+  const awayBalance = awayRecov - awayLosses;
+  if (homeBalance < 0) {
+    recs.push({
+      priority: 'med',
+      title: `${m.homeTeam}: balance negativo en posesión`,
+      desc: `${m.homeTeam} ha perdido más balones (${homeLosses}) de los que ha recuperado (${homeRecov}). Balance: ${homeBalance}.`,
+      data: `Recuperaciones: ${homeRecov} | Pérdidas: ${homeLosses} | Balance: ${homeBalance}`,
+      action: `Mejorar intensidad defensiva y presión colectiva. Trabajo táctico en bloque bajo para facilitar recuperaciones.`,
+    });
+  }
+  if (awayBalance < 0) {
+    recs.push({
+      priority: 'med',
+      title: `${m.awayTeam}: balance negativo en posesión`,
+      desc: `${m.awayTeam} ha perdido más balones (${awayLosses}) de los que ha recuperado (${awayRecov}). Balance: ${awayBalance}.`,
+      data: `Recuperaciones: ${awayRecov} | Pérdidas: ${awayLosses} | Balance: ${awayBalance}`,
+      action: `Mejorar intensidad defensiva y presión colectiva. Trabajo táctico en bloque bajo para facilitar recuperaciones.`,
+    });
+  }
+
+  // 5. Distribución por mitades
+  if (h2Events.length > h1Events.length * 1.5) {
+    recs.push({
+      priority: 'low',
+      title: 'Mayor actividad en 2ª mitad',
+      desc: `La 2ª mitad ha tenido ${h2Events.length} eventos vs ${h1Events.length} en la 1ª mitad (+${((h2Events.length / Math.max(1, h1Events.length) - 1) * 100).toFixed(0)}%).`,
+      data: `1H: ${h1Events.length} eventos | 2H: ${h2Events.length} eventos`,
+      action: `Posible fatiga acumulada o cambios tácticos. Considerar trabajo físico específico y rotaciones para mantener intensidad en ambas mitades.`,
+    });
+  } else if (h1Events.length > h2Events.length * 1.5) {
+    recs.push({
+      priority: 'low',
+      title: 'Mayor actividad en 1ª mitad',
+      desc: `La 1ª mitad ha tenido ${h1Events.length} eventos vs ${h2Events.length} en la 2ª mitad.`,
+      data: `1H: ${h1Events.length} eventos | 2H: ${h2Events.length} eventos`,
+      action: `Bajón de ritmo en 2ª mitad. Trabajar resistencia física y gestión del partido. Considerar cambios tácticos para reactivar el equipo.`,
+    });
+  }
+
+  // 6. Faltas y disciplina
+  const totalFouls = homeFouls + awayFouls;
+  if (totalFouls > 15) {
+    const teamMore = homeFouls > awayFouls ? m.homeTeam : m.awayTeam;
+    const moreFouls = Math.max(homeFouls, awayFouls);
+    recs.push({
+      priority: 'med',
+      title: 'Partido con muchas faltas',
+      desc: `Se han cometido ${totalFouls} faltas. ${teamMore} es el equipo más infractor con ${moreFouls} faltas.`,
+      data: `${m.homeTeam}: ${homeFouls} faltas | ${m.awayTeam}: ${awayFouls} faltas | Total: ${totalFouls}`,
+      action: `Trabajar disciplina táctica: mejora de tiempos de entrada, anticipación y posicionamiento. Reducir faltas evita tarjetas y tiros libres peligrosos.`,
+    });
+  }
+
+  // 7. Tarjetas
+  if (homeRed > 0 || awayRed > 0) {
+    const team = homeRed > 0 ? m.homeTeam : m.awayTeam;
+    recs.push({
+      priority: 'high',
+      title: `Tarjeta roja para ${team}`,
+      desc: `${team} ha recibido una tarjeta roja, dejando al equipo con un jugador menos.`,
+      data: `${m.homeTeam}: ${homeYellow}🟨 ${homeRed}🟥 | ${m.awayTeam}: ${awayYellow}🟨 ${awayRed}🟥`,
+      action: `Trabajo disciplinario urgente. Revisar la jugada específica y trabajar control emocional. Considerar adaptaciones tácticas para jugar con uno menos.`,
+    });
+  } else if (homeYellow + awayYellow > 4) {
+    recs.push({
+      priority: 'low',
+      title: 'Muchas tarjetas amarillas',
+      desc: `Se han mostrado ${homeYellow + awayYellow} tarjetas amarillas en el partido.`,
+      data: `${m.homeTeam}: ${homeYellow}🟨 | ${m.awayTeam}: ${awayYellow}🟨`,
+      action: `Control de la agresividad defensiva. Trabajar entradas y anticipación para evitar amonestaciones que puedan acarrear sanciones por acumulación.`,
+    });
+  }
+
+  // 8. Distribución espacial de ataques
+  const homeAttacks = homeEvents.filter(e => ['shot', 'shot_on', 'goal', 'cross'].includes(e.type));
+  const awayAttacks = awayEvents.filter(e => ['shot', 'shot_on', 'goal', 'cross'].includes(e.type));
+
+  if (homeAttacks.length > 0) {
+    const homeRightAttacks = homeAttacks.filter(e => e.cellCol >= m.gridCols / 2).length;
+    const homeLeftAttacks = homeAttacks.length - homeRightAttacks;
+    if (Math.abs(homeRightAttacks - homeLeftAttacks) > homeAttacks.length * 0.4) {
+      const side = homeRightAttacks > homeLeftAttacks ? 'derecha' : 'izquierda';
+      recs.push({
+        priority: 'info',
+        title: `${m.homeTeam}: ataques concentrados por la ${side}`,
+        desc: `${m.homeTeam} ha generado ${Math.max(homeRightAttacks, homeLeftAttacks)} de ${homeAttacks.length} acciones de ataque por la banda ${side}.`,
+        data: `Banda derecha: ${homeRightAttacks} | Banda izquierda: ${homeLeftAttacks}`,
+        action: `Variar los puntos de ataque para no ser predecible. La banda menos utilizada puede sorprender al rival. Considerar cambios de orientación.`,
+      });
+    }
+  }
+
+  // 9. Ausencia de remates
+  if (homeShots === 0) {
+    recs.push({
+      priority: 'high',
+      title: `${m.homeTeam}: ningún remate registrado`,
+      desc: `No se han registrado remates a puerta de ${m.homeTeam}.`,
+      data: `Remates: 0`,
+      action: `Urgente: trabajar creación de chances. Movimientos ofensivos, desmarques, pases filtrados. Si no rematas, no puedes marcar.`,
+    });
+  }
+  if (awayShots === 0) {
+    recs.push({
+      priority: 'high',
+      title: `${m.awayTeam}: ningún remate registrado`,
+      desc: `No se han registrado remates a puerta de ${m.awayTeam}.`,
+      data: `Remates: 0`,
+      action: `Urgente: trabajar creación de chances. Movimientos ofensivos, desmarques, pases filtrados.`,
+    });
+  }
+
+  // 10. Si no hay recomendaciones
+  if (recs.length === 0) {
+    recs.push({
+      priority: 'info',
+      title: 'Partido equilibrado',
+      desc: `No se han detectado patrones problemáticos en los datos registrados. El partido parece equilibrado en posesión, eficiencia y disciplina.`,
+      data: `Total eventos: ${events.length}`,
+      action: `Continuar con el trabajo actual. Recopila más datos en próximos partidos para detectar tendencias a largo plazo.`,
+    });
+  }
+
+  container.innerHTML = recs.map(r => `
+    <div class="recommendation priority-${r.priority}">
+      <div class="rec-header">
+        <span class="rec-priority-badge ${r.priority}">${r.priority === 'high' ? 'Alta' : r.priority === 'med' ? 'Media' : r.priority === 'low' ? 'Baja' : 'Info'}</span>
+        <span class="rec-title">${r.title}</span>
+      </div>
+      <div class="rec-desc">${r.desc}</div>
+      <div class="rec-data">📊 ${r.data}</div>
+      <div class="rec-action"><strong>💡 Acción:</strong> ${r.action}</div>
+    </div>
+  `).join('');
+}
+
+// ============= EXPORT REPORT =============
+function exportReport() {
+  if (!state.match) {
+    showToast('Carga un partido primero');
+    return;
+  }
+  const m = state.match;
+  const events = m.events;
+
+  // Build report
+  const homeEvents = events.filter(e => e.team === 'home');
+  const awayEvents = events.filter(e => e.team === 'away');
+  const homeGoals = homeEvents.filter(e => e.type === 'goal').length;
+  const awayGoals = awayEvents.filter(e => e.type === 'goal').length;
+  const homeShots = homeEvents.filter(e => ['shot', 'shot_on', 'goal'].includes(e.type)).length;
+  const awayShots = awayEvents.filter(e => ['shot', 'shot_on', 'goal'].includes(e.type)).length;
+  const homeLosses = homeEvents.filter(e => ['loss', 'pass_fail'].includes(e.type)).length;
+  const awayLosses = awayEvents.filter(e => ['loss', 'pass_fail'].includes(e.type)).length;
+
+  const report = `INFORME DE ANÁLISIS TÁCTICO
+==========================
+
+Partido: ${m.homeTeam} vs ${m.awayTeam}
+Competición: ${m.competition || 'N/A'}
+Fecha: ${new Date().toLocaleDateString('es-ES')}
+Total eventos registrados: ${events.length}
+
+RESULTADO
+---------
+${m.homeTeam}: ${homeGoals} goles
+${m.awayTeam}: ${awayGoals} goles
+
+POSESIÓN (basada en eventos)
+${m.homeTeam}: ${(homeEvents.length / Math.max(1, events.length) * 100).toFixed(1)}%
+${m.awayTeam}: ${(awayEvents.length / Math.max(1, events.length) * 100).toFixed(1)}%
+
+EFICIENCIA OFENSIVA
+${m.homeTeam}: ${homeShots} remates, ${homeGoals} goles (${homeShots > 0 ? (homeGoals / homeShots * 100).toFixed(0) : 0}% conversión)
+${m.awayTeam}: ${awayShots} remates, ${awayGoals} goles (${awayShots > 0 ? (awayGoals / awayShots * 100).toFixed(0) : 0}% conversión)
+
+BALANCE POSESIÓN
+${m.homeTeam}: ${homeEvents.filter(e => ['recovery', 'interception'].includes(e.type)).length} recuperaciones, ${homeLosses} pérdidas
+${m.awayTeam}: ${awayEvents.filter(e => ['recovery', 'interception'].includes(e.type)).length} recuperaciones, ${awayLosses} pérdidas
+
+DISTRIBUCIÓN POR MITADES
+1ª Mitad: ${events.filter(e => e.half === 1).length} eventos
+2ª Mitad: ${events.filter(e => e.half === 2).length} eventos
+
+DISCIPLINA
+${m.homeTeam}: ${homeEvents.filter(e => e.type === 'yellow').length} amarillas, ${homeEvents.filter(e => e.type === 'red').length} rojas
+${m.awayTeam}: ${awayEvents.filter(e => e.type === 'yellow').length} amarillas, ${awayEvents.filter(e => e.type === 'red').length} rojas
+
+---
+Informe generado por Pizarra Táctica
+`;
+
+  const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `informe_${m.homeTeam}_vs_${m.awayTeam}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Informe exportado');
+}
+
+// ============= INIT =============
+function init() {
+  // Try to auto-load from app
+  try {
+    const raw = localStorage.getItem('pizarra-tactica-data-v2');
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.matches && data.matches.length > 0) {
+        // Don't auto-load; user clicks button
+      }
+    }
+  } catch (e) {}
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('show');
+  });
+});
+
+init();
+</script>
+</body>
+</html>
