@@ -455,6 +455,7 @@
       <span class="half-badge" id="halfBadge">1ª</span>
       <span class="time-display" id="timeDisplay">00:00</span>
       <button class="clock-btn play" id="playBtn" onclick="toggleClock()">▶</button>
+      <button class="clock-btn small" onclick="cycleSpeed()" title="Velocidad del cronómetro (1x=tiempo real, 2x/4x/8x=para sincronizar con video)" id="speedBtn">1x</button>
       <button class="clock-btn small" onclick="adjustTime(-60)" title="-1 min">−</button>
       <button class="clock-btn small" onclick="adjustTime(60)" title="+1 min">+</button>
       <button class="clock-btn half" onclick="switchHalf()" title="Cambiar mitad" id="halfBtn">2ª</button>
@@ -736,6 +737,7 @@ let state = {
   rotationLocked: false,
   panelOpen: false,
   currentTab: 'timeline',
+  clockSpeed: 1, // 1x, 2x, 4x, 8x — para sincronizar con video
 };
 
 let clockInterval = null;
@@ -789,6 +791,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('show'); 
 // ============= INIT =============
 function init() {
   loadState();
+  loadSavedSpeed();
   renderEventTypes();
   renderFieldStripes();
   renderCurrentMatch();
@@ -1218,10 +1221,59 @@ function startClockTick() {
     if (!state.running) return;
     const now = Date.now();
     const elapsed = (now - state.lastTick) / 1000;
-    state.minuteFloat += elapsed / 60;
+    // Multiply elapsed by clockSpeed: 2x = el doble de rápido (para sincronizar con video)
+    state.minuteFloat += (elapsed * state.clockSpeed) / 60;
     state.lastTick = now;
     updateClockUI();
   }, 250);
+}
+
+// Cycle through speeds: 1x → 2x → 4x → 8x → 1x
+function cycleSpeed() {
+  const speeds = [1, 2, 4, 8];
+  const currentIdx = speeds.indexOf(state.clockSpeed);
+  const nextIdx = (currentIdx + 1) % speeds.length;
+  state.clockSpeed = speeds[nextIdx];
+  updateSpeedButton();
+  // Persist
+  try {
+    localStorage.setItem('pizarra-clock-speed', String(state.clockSpeed));
+  } catch (e) {}
+  const labels = { 1: 'tiempo real', 2: 'doble velocidad', 4: '4x (video acelerado)', 8: '8x (video muy acelerado)' };
+  showToast(`Velocidad: ${state.clockSpeed}x — ${labels[state.clockSpeed]}`);
+}
+
+function updateSpeedButton() {
+  const btn = document.getElementById('speedBtn');
+  if (!btn) return;
+  btn.textContent = state.clockSpeed + 'x';
+  // Visual cue: higher speed = more red/urgent
+  if (state.clockSpeed === 1) {
+    btn.style.background = '#f1f5f9';
+    btn.style.color = '#334155';
+  } else if (state.clockSpeed === 2) {
+    btn.style.background = '#fef3c7';
+    btn.style.color = '#b45309';
+  } else if (state.clockSpeed === 4) {
+    btn.style.background = '#fed7aa';
+    btn.style.color = '#c2410c';
+  } else {
+    btn.style.background = '#fecaca';
+    btn.style.color = '#b91c1c';
+  }
+}
+
+function loadSavedSpeed() {
+  try {
+    const saved = localStorage.getItem('pizarra-clock-speed');
+    if (saved) {
+      const n = parseInt(saved);
+      if ([1, 2, 4, 8].includes(n)) {
+        state.clockSpeed = n;
+      }
+    }
+  } catch (e) {}
+  updateSpeedButton();
 }
 
 function adjustTime(deltaSec) {
